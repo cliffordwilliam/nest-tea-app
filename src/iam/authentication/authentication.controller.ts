@@ -26,4 +26,10 @@ export class AuthenticationController {
   refreshTokens(@Body() refreshTokenDto: RefreshTokenDto) {
     return this.authService.refreshTokens(refreshTokenDto);
   }
+
+  @HttpCode(HttpStatus.OK)
+  @Post('sign-out')
+  signOut(@Body() refreshTokenDto: RefreshTokenDto) {
+    return this.authService.signOut(refreshTokenDto);
+  }
 }

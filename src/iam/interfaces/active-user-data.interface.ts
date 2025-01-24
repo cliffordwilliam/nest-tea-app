@@ -1,8 +1,11 @@
 import { Role } from 'src/users/enums/role.enum';
 
+// req user / token payload shape
 export interface ActiveUserData {
-  sub: number; // this is the user id
+  // default req user (user id)
+  sub: number;
+  // additional req user (partial)
   username: string;
-  refreshTokenId: string; // todo: move this to its own file?
+  refreshTokenId: string;
   role: Role;
 }

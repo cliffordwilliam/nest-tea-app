@@ -1193,7 +1193,7 @@ import { BcryptService } from './hashing/bcrypt.service';
 export class IamModule {}
 ```
 
-# create iam interface for active user req token data (iam/interfaces/active-user-data.interface.ts)
+# create iam interface for active user req payload (iam/interfaces/active-user-data.interface.ts)
 
 ```javascript
 export interface ActiveUserData {
@@ -1271,7 +1271,7 @@ export class AuthenticationService {
     }
     // make token
     const accessToken = await this.jwtService.signAsync(
-      // user req token data
+      // user req payload
       {
         sub: user.id,
         username: user.username,
@@ -1301,7 +1301,7 @@ nest g guard iam/authentication/guards/access-token --flat --no-spec
 # make iam constants (iam.constants.ts)
 
 ```javascript
-export const REQUEST_USER_KEY = 'user'; // the req token data key, used by token guard
+export const REQUEST_USER_KEY = 'user'; // the req payload key, used by token guard
 ```
 
 # make token guard
@@ -1648,7 +1648,7 @@ export class AuthenticationService {
   private async signToken<T>(expiresIn: number, userId: number, payload?: T) {
     // payload -> token
     return await this.jwtService.signAsync(
-      // user req token data
+      // user req payload
       {
         // default payload (user id)
         sub: userId,
@@ -1825,7 +1825,7 @@ export class AuthenticationService {
   private async signToken<T>(expiresIn: number, userId: number, payload?: T) {
     // payload -> token
     return await this.jwtService.signAsync(
-      // user req token data
+      // user req payload
       {
         // default payload (user id)
         sub: userId,
@@ -1913,19 +1913,19 @@ export class AuthenticationController {
 }
 ```
 
-# make custom decor to grab req token data (src/iam/decorators/active-user.decorator.ts)
+# make custom decor to grab req payload (src/iam/decorators/active-user.decorator.ts)
 
 ```javascript
 import { createParamDecorator, ExecutionContext } from '@nestjs/common';
 import { REQUEST_USER_KEY } from '../iam.constants';
 import { ActiveUserData } from '../interfaces/active-user-data.interface';
 
-// decor to grab req token data
+// decor to grab req payload
 export const ActiveUser = createParamDecorator(
   (field: keyof ActiveUserData | undefined, ctx: ExecutionContext) => {
     // get req
     const request: Request = ctx.switchToHttp().getRequest();
-    // use key to get req token data
+    // use key to get req payload
     const user = request[REQUEST_USER_KEY] as ActiveUserData | undefined;
     // return user
     return field ? user?.[field] : user;
@@ -2490,7 +2490,7 @@ await get("UserRepository").find()
 
 # exit repl with ctrl C 3 times
 
-# update active user to hold role data in it, this is the req token data
+# update active user to hold role data in it, this is the req payload
 
 ```javascript
 import { Role } from 'src/users/enums/role.enum';
@@ -2503,7 +2503,7 @@ export interface ActiveUserData {
 }
 ```
 
-# edit to include role in req token data (src/iam/authentication/authentication.service.ts)
+# edit to include role in req payload (src/iam/authentication/authentication.service.ts)
 
 ```javascript
 import {
@@ -2649,7 +2649,7 @@ export class AuthenticationService {
   private async signToken<T>(expiresIn: number, userId: number, payload?: T) {
     // payload -> token
     return await this.jwtService.signAsync(
-      // user req token data
+      // user req payload
       {
         // default payload (user id)
         sub: userId,
@@ -2718,7 +2718,7 @@ export class RolesGuard implements CanActivate {
     }
     // get req
     const request: Request = context.switchToHttp().getRequest();
-    // use key to get req token data
+    // use key to get req payload
     const user = request[REQUEST_USER_KEY] as ActiveUserData | undefined;
     // check if logged in user role is the same as decor's
     return contextRole === user?.role;
@@ -2878,6 +2878,7 @@ export class TeasController {
 # go to repl, turn this user to admin, then try to make tea
 
 ```bash
+npm run start -- --entryFile repl
 await get("UserRepository").update({ id: 1 }, { role: 'admin' })
 ```
 

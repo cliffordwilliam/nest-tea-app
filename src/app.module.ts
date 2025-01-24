@@ -1,12 +1,17 @@
 import * as Joi from '@hapi/joi';
 import { Module, ValidationPipe } from '@nestjs/common';
 import { ConfigModule, ConfigType } from '@nestjs/config';
-import { APP_PIPE } from '@nestjs/core';
+import { APP_GUARD, APP_PIPE } from '@nestjs/core';
+import {
+  ThrottlerGuard,
+  ThrottlerModule,
+  ThrottlerModuleOptions,
+} from '@nestjs/throttler';
 import { TypeOrmModule, TypeOrmModuleOptions } from '@nestjs/typeorm';
 import appConfig from './config/app.config';
+import { IamModule } from './iam/iam.module';
 import { TeasModule } from './teas/teas.module';
 import { UsersModule } from './users/users.module';
-import { IamModule } from './iam/iam.module';
 
 @Module({
   imports: [
@@ -21,18 +26,22 @@ import { IamModule } from './iam/iam.module';
           .default('development'),
         DATABASE_TYPE: Joi.string()
           .valid('mysql', 'postgres', 'mariadb', 'mongodb', 'sqlite')
-          .default('postgres'),
-        DATABASE_HOST: Joi.string().default('localhost'),
-        DATABASE_PORT: Joi.number().default(5432),
-        DATABASE_USER: Joi.string().default('user'),
-        DATABASE_PASSWORD: Joi.string().default('password'),
-        DATABASE_NAME: Joi.string().default('database'),
+          .required(),
+        DATABASE_HOST: Joi.string().required(),
+        DATABASE_PORT: Joi.number().required(),
+        DATABASE_USER: Joi.string().required(),
+        DATABASE_PASSWORD: Joi.string().required(),
+        DATABASE_NAME: Joi.string().required(),
         JWT_SECRET: Joi.string().required(),
         JWT_TOKEN_AUDIENCE: Joi.string().default('localhost:3000'),
         JWT_TOKEN_ISSUER: Joi.string().default('localhost:3000'),
         JWT_ACCESS_TOKEN_TTL: Joi.string().default('300'),
         JWT_REFRESH_TOKEN_TTL: Joi.string().default('3600'),
         REDIS_HOST: Joi.string().default('localhost'),
+        REDIS_PORT: Joi.number().default(6379),
+        RATE_LIMIT_TTL: Joi.number().default(60),
+        RATE_LIMIT_LIMIT: Joi.number().default(5),
+        BCRYPT_SALT: Joi.number().default(12),
       }),
     }),
     // db conn
@@ -53,6 +62,18 @@ import { IamModule } from './iam/iam.module';
         }) as TypeOrmModuleOptions,
       inject: [appConfig.KEY],
     }),
+    // rate limit
+    ThrottlerModule.forRootAsync({
+      imports: [ConfigModule.forFeature(appConfig)],
+      useFactory: (rootConfig: ConfigType<typeof appConfig>) =>
+        [
+          {
+            ttl: rootConfig.rateLimit.ttl,
+            limit: rootConfig.rateLimit.limit,
+          },
+        ] as ThrottlerModuleOptions,
+      inject: [appConfig.KEY],
+    }),
     // sub modules
     TeasModule,
     UsersModule,
@@ -69,6 +90,11 @@ import { IamModule } from './iam/iam.module';
           forbidNonWhitelisted: true,
         });
       },
+    },
+    // register global
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
     },
   ],
 })

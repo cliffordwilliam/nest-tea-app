@@ -1,59 +1,113 @@
 import {
+  Inject,
   Injectable,
+  Logger,
   OnApplicationBootstrap,
   OnApplicationShutdown,
+  UnauthorizedException,
 } from '@nestjs/common';
+import { ConfigType } from '@nestjs/config';
 import Redis from 'ioredis';
-
-// todo: move this to its own file
-export class InvalidatedRefreshTokenError extends Error {}
+import jwtConfig from '../config/jwt.config';
+import redisConfig from '../config/redis.config';
 
 @Injectable()
 // subscribe to nest lifecycle events
 export class RefreshTokenIdsStorage
   implements OnApplicationBootstrap, OnApplicationShutdown
 {
-  // prepare prop to hold redis client
   private redisClient: Redis;
+  private readonly logger = new Logger(RefreshTokenIdsStorage.name);
+
+  constructor(
+    // inject configs
+    @Inject(redisConfig.KEY)
+    private readonly redisConfiguration: ConfigType<typeof redisConfig>,
+    @Inject(jwtConfig.KEY)
+    private readonly jwtConfiguration: ConfigType<typeof jwtConfig>,
+  ) {}
 
   // on app start
   onApplicationBootstrap() {
-    // todo: make redis module to init connection
-    this.redisClient = new Redis({
-      // todo: use the environment variables
-      host: 'localhost',
-      port: 6379,
-    });
+    try {
+      // init redit conn
+      this.redisClient = new Redis({
+        host: this.redisConfiguration.host,
+        port: this.redisConfiguration.port,
+      });
+
+      // log ok
+      this.logger.log('Connected to Redis');
+
+      // log fail
+      this.redisClient.on('error', (error) => {
+        this.logger.error('Redis connection error', error.stack);
+      });
+    } catch (error) {
+      this.logger.error('Error during Redis initialization', error);
+      throw error; // fail fast if Redis cannot be initialized
+    }
   }
 
   // on app end
-  onApplicationShutdown(signal?: string) {
-    // cut redis conn
-    return this.redisClient.quit();
+  async onApplicationShutdown() {
+    try {
+      // cut redis conn
+      if (this.redisClient) {
+        await this.redisClient.quit();
+        this.logger.log('Redis connection closed');
+      }
+    } catch (error) {
+      this.logger.error('Error shutting down Redis connection', error);
+    }
   }
 
   async insert(userId: number, tokenId: string): Promise<void> {
-    // add to redis (user id : token id)
-    await this.redisClient.set(this.getKey(userId), tokenId);
+    try {
+      // save to redis (user id : token id)
+      await this.redisClient.set(
+        this.getKey(userId),
+        tokenId,
+        // del refresh token from redis if its invalid alr
+        'EX',
+        this.jwtConfiguration.refreshTokenTtl,
+      );
+      this.logger.log(`Refresh token saved for user ID: ${userId}`);
+    } catch (error) {
+      this.logger.error('Error inserting refresh token', error);
+      throw new Error('Could not save the refresh token');
+    }
   }
 
   async validate(userId: number, tokenId: string): Promise<boolean> {
-    // use user id key to get token id
-    const storedId = await this.redisClient.get(this.getKey(userId));
-    // token db vs passed token
-    if (storedId !== tokenId) {
-      throw new InvalidatedRefreshTokenError();
+    try {
+      // use user id key to get token id
+      const storedId = await this.redisClient.get(this.getKey(userId));
+      // token db vs passed token
+      if (storedId !== tokenId) {
+        this.logger.warn(`Invalid refresh token for user ID: ${userId}`);
+        throw new UnauthorizedException('Refresh token is invalid');
+      }
+      return true;
+    } catch (error) {
+      this.logger.error('Error validating refresh token', error);
+      throw new UnauthorizedException('Refresh token is invalid');
     }
-    return storedId === tokenId;
   }
 
   async invalidate(userId: number): Promise<void> {
-    // del token using user id key
-    await this.redisClient.del(this.getKey(userId));
+    try {
+      // del token using user id key
+      await this.redisClient.del(this.getKey(userId));
+      this.logger.log(`Refresh token invalidated for user ID: ${userId}`);
+    } catch (error) {
+      this.logger.error('Error invalidating refresh token', error);
+      throw new Error('Could not invalidate the refresh token');
+    }
   }
 
   private getKey(userId: number): string {
-    // this is just to reformat key str (for better visual look)
-    return `user-${userId}`;
+    // this is just to reformat key str
+    return `user-${userId}-refresh-token`;
   }
 }

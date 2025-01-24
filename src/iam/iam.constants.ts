@@ -1,1 +1,1 @@
-export const REQUEST_USER_KEY = 'user'; // to get req token data
+export const REQUEST_USER_KEY = 'user';

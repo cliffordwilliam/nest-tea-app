@@ -10,4 +10,8 @@ export default registerAs('database', () => ({
     password: process.env.DATABASE_PASSWORD || 'password',
     name: process.env.DATABASE_NAME || 'database',
   },
+  rateLimit: {
+    ttl: parseInt(process.env.RATE_LIMIT_TTL || '60', 10),
+    limit: parseInt(process.env.RATE_LIMIT_LIMIT || '5', 10),
+  },
 }));

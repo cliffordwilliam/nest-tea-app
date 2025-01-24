@@ -30,9 +30,9 @@ export class TeasController {
   @Get()
   findAll(
     @Query() paginationQuery: PaginationQueryDto,
-    @ActiveUser() user: ActiveUserData | undefined,
+    @ActiveUser() payload: ActiveUserData | undefined,
   ) {
-    console.log(user);
+    console.log(payload);
     return this.teasService.findAll(paginationQuery);
   }
 

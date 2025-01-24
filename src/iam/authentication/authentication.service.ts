@@ -2,6 +2,7 @@ import {
   ConflictException,
   Inject,
   Injectable,
+  Logger,
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigType } from '@nestjs/config';
@@ -20,6 +21,8 @@ import { RefreshTokenIdsStorage } from './refresh-token-ids.storage';
 
 @Injectable()
 export class AuthenticationService {
+  private readonly logger = new Logger(AuthenticationService.name);
+
   constructor(
     // inject repo
     @InjectRepository(User)
@@ -34,127 +37,132 @@ export class AuthenticationService {
   ) {}
 
   async signUp(signUpDto: SignUpDto) {
-    // prevent violating unique constraint
-    const existingUser = await this.usersRepository.findOneBy({
-      username: signUpDto.username,
-    });
+    const { username, password } = signUpDto;
+
+    // user alr exist? throw
+    const existingUser = await this.usersRepository.findOneBy({ username });
     if (existingUser) {
-      throw new ConflictException(
-        `User with username ${signUpDto.username} already exists`,
-      );
+      this.logger.warn(`User with username ${username} already exists`);
+      throw new ConflictException('Username is already taken');
     }
+
     // dto -> repo instance -> save
     const user = new User();
-    user.username = signUpDto.username;
-    user.password = await this.bcryptService.hash(signUpDto.password);
+    user.username = username;
+    user.password = await this.bcryptService.hash(password);
     await this.usersRepository.save(user);
+    this.logger.log(`New user registered with username: ${username}`);
   }
 
   async signIn(signInDto: SignInDto) {
+    const { username, password } = signInDto;
+
     // user exists?
-    const user = await this.usersRepository.findOneBy({
-      username: signInDto.username,
-    });
+    const user = await this.usersRepository.findOneBy({ username });
     if (!user) {
-      throw new UnauthorizedException('User does not exists');
+      this.logger.warn(`Failed login attempt for username: ${username}`);
+      throw new UnauthorizedException('Invalid credentials');
     }
+
     // password ok?
-    const isEqual = await this.bcryptService.compare(
-      signInDto.password,
+    const isPasswordValid = await this.bcryptService.compare(
+      password,
       user.password,
     );
-    if (!isEqual) {
-      throw new UnauthorizedException('Password does not match');
+    if (!isPasswordValid) {
+      this.logger.warn(`Invalid password for username: ${username}`);
+      throw new UnauthorizedException('Invalid credentials');
     }
-    // user -> token + refresh token
-    return await this.generateTokens(user);
-  }
 
-  private async generateTokens(user: User) {
-    // new refresh token uuid to be saved in redis
-    const refreshTokenId = randomUUID();
-    // user -> token + refresh token
-    const [accessToken, refreshToken] = await Promise.all([
-      // access token
-      this.signToken<Partial<ActiveUserData>>(
-        // ttl (dynamic jwt config)
-        this.jwtConfiguration.accessTokenTtl,
-        // default payload (user id)
-        user.id,
-        // additional payload (partial active user data)
-        { username: user.username, role: user.role },
-      ),
-      // refresh token
-      this.signToken<Partial<ActiveUserData>>(
-        // ttl (dynamic jwt config)
-        this.jwtConfiguration.refreshTokenTtl,
-        // default payload (user id)
-        user.id,
-        // additional payload (partial active user data)
-        { refreshTokenId },
-      ),
-    ]);
-    // save to redis (user id : token id)
-    await this.refreshTokenIdsStorage.insert(user.id, refreshTokenId);
-    return {
-      accessToken,
-      refreshToken,
-    };
+    // give tokens
+    this.logger.log(`User logged in: ${username}`);
+    return await this.generateTokens(user);
   }
 
   async refreshTokens(refreshTokenDto: RefreshTokenDto) {
     try {
-      // get refresh token payload
-      const payload: ActiveUserData = await this.jwtService.verifyAsync(
+      // del saved token (auto throw)
+      const user = await this.refreshTokenRotation(
         refreshTokenDto.refreshToken,
-        // jwt configs
-        {
-          audience: this.jwtConfiguration.audience,
-          issuer: this.jwtConfiguration.issuer,
-          secret: this.jwtConfiguration.secret,
-          // this func param interface does not have expiresIn
-        },
       );
-      // find user by default payload (user id)
-      const user = await this.usersRepository.findOneByOrFail({
-        id: payload.sub,
-      });
-      // user saved redis refresh token vs passed refresh token
-      const isValid = await this.refreshTokenIdsStorage.validate(
-        user.id,
-        payload.refreshTokenId,
-      );
-      if (isValid) {
-        // refresh token passed is valid, del it from redis
-        await this.refreshTokenIdsStorage.invalidate(user.id);
-      } else {
-        // passed refresh token is not the same as the one saved in redis
-        throw new Error('Refresh token is invalid');
-      }
-      // make new token + refresh token with user
+      // give tokens
+      this.logger.log(`Refresh tokens generated for user ID: ${user.id}`);
       return this.generateTokens(user);
-    } catch (err) {
-      throw new UnauthorizedException();
+    } catch (error) {
+      this.logger.error('Invalid or expired refresh token', error);
+      throw new UnauthorizedException('Invalid or expired refresh token');
     }
   }
 
-  private async signToken<T>(expiresIn: number, userId: number, payload?: T) {
-    // payload -> token
-    return await this.jwtService.signAsync(
-      // user req token data
+  async signOut(refreshTokenDto: RefreshTokenDto) {
+    try {
+      // del saved token (auto throw)
+      const user = await this.refreshTokenRotation(
+        refreshTokenDto.refreshToken,
+      );
+      this.logger.log(`User ID ${user.id} has successfully signed out.`);
+      // worst case access token is usable for 5 min, after that cannot refresh it
+    } catch (error) {
+      this.logger.error(`Error while signing out user`, error);
+      throw new UnauthorizedException('Failed to sign out');
+    }
+  }
+
+  private async refreshTokenRotation(refreshToken: string): Promise<User> {
+    // passed refresh token -> payload (auto throw)
+    const payload: ActiveUserData = await this.jwtService.verifyAsync(
+      refreshToken,
+      this.jwtConfiguration,
+    );
+
+    // payload -> user
+    const user = await this.usersRepository.findOneByOrFail({
+      id: payload.sub,
+    });
+
+    // passed refresh token vs redis saved token (auto throw)
+    await this.refreshTokenIdsStorage.validate(user.id, payload.refreshTokenId);
+
+    // one time refresh token is used, del it
+    await this.refreshTokenIdsStorage.invalidate(user.id);
+
+    return user;
+  }
+
+  private async generateTokens(user: User) {
+    const refreshTokenId = randomUUID();
+
+    const [accessToken, refreshToken] = await Promise.all([
+      this.signToken<Partial<ActiveUserData>>(
+        this.jwtConfiguration.accessTokenTtl,
+        user.id,
+        { username: user.username, role: user.role },
+      ),
+      this.signToken<Partial<ActiveUserData>>(
+        this.jwtConfiguration.refreshTokenTtl,
+        user.id,
+        { refreshTokenId },
+      ),
+    ]);
+
+    // save refresh token id in redis
+    await this.refreshTokenIdsStorage.insert(user.id, refreshTokenId);
+
+    this.logger.log(`Tokens generated for user ID: ${user.id}`);
+    return { accessToken, refreshToken };
+  }
+
+  private async signToken<T>(
+    expiresIn: number, // dynamic config
+    userId: number, // req payload prop
+    payload?: T, // extra payload prop
+  ): Promise<string> {
+    return this.jwtService.signAsync(
+      { sub: userId, ...payload },
       {
-        // default payload (user id)
-        sub: userId,
-        // additional payload (partial active user data)
-        ...payload,
-      },
-      // jwt configs
-      {
-        // static jwt config
-        audience: this.jwtConfiguration.audience,
-        issuer: this.jwtConfiguration.issuer,
         secret: this.jwtConfiguration.secret,
-        // ttl (dynamic jwt config)
+        issuer: this.jwtConfiguration.issuer,
+        audience: this.jwtConfiguration.audience,
         expiresIn,
       },
     );
