@@ -4,6 +4,7 @@ import {
   Column,
   CreateDateColumn,
   Entity,
+  Index,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
@@ -13,6 +14,7 @@ export class Tea {
   @PrimaryGeneratedColumn()
   id: number;
 
+  @Index()
   @Column({ type: 'varchar', length: 255, unique: true })
   name: string;
 
@@ -43,7 +45,7 @@ export class Tea {
     // trim extra spaces
     this.name = this.name.trim().replace(/\s+/g, ' ');
     if (this.description) {
-      this.imageUrl = this.description.trim().replace(/\s+/g, ' ');
+      this.description = this.description.trim().replace(/\s+/g, ' ');
     }
     if (this.imageUrl) {
       this.imageUrl = this.imageUrl.trim().replace(/\s+/g, ' ');

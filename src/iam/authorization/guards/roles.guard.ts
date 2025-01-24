@@ -60,6 +60,7 @@ export class RolesGuard implements CanActivate {
       );
     }
     // yes? pass
+    this.logger.log(`Access granted to user ${user.username}`);
     return true;
   }
 }
