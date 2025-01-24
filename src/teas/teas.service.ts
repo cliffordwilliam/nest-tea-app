@@ -1,9 +1,12 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { UploadApiResponse } from 'cloudinary';
+import { CloudinaryService } from 'src/cloudinary/cloudinary.service';
 import { PaginationQueryDto } from 'src/common/dto/pagination-query.dto';
 import { Repository } from 'typeorm';
 import { CreateTeaDto } from './dto/create-tea.dto';
@@ -16,6 +19,8 @@ export class TeasService {
     // inject repo
     @InjectRepository(Tea)
     private readonly teaRepository: Repository<Tea>,
+    // inject 3rd party servs
+    private cloudinary: CloudinaryService,
   ) {}
 
   async create(createTeaDto: CreateTeaDto) {
@@ -70,5 +75,28 @@ export class TeasService {
   async remove(id: number) {
     const tea = await this.findOne(id);
     return this.teaRepository.remove(tea);
+  }
+
+  async addImage(id: number, file: Express.Multer.File) {
+    // todo: think of ways to prevent abuse
+    const tea = await this.findOne(id);
+    try {
+      const res = await this.cloudinary.uploadImage(file);
+      // res ok?
+      if ((res as UploadApiResponse).secure_url) {
+        const imageUrl = (res as UploadApiResponse).secure_url;
+        // update tea image url
+        tea.imageUrl = imageUrl;
+        await this.teaRepository.save(tea);
+        // give client updated tea
+        return tea;
+      } else {
+        // res err? throw
+        throw new BadRequestException('Image upload failed');
+      }
+    } catch (error) {
+      console.error('Error uploading image:', error); // todo: use log, do not use the console.error
+      throw new BadRequestException('Invalid file type.');
+    }
   }
 }

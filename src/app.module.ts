@@ -8,6 +8,7 @@ import {
   ThrottlerModuleOptions,
 } from '@nestjs/throttler';
 import { TypeOrmModule, TypeOrmModuleOptions } from '@nestjs/typeorm';
+import { CloudinaryModule } from './cloudinary/cloudinary.module';
 import appConfig from './config/app.config';
 import { IamModule } from './iam/iam.module';
 import { TeasModule } from './teas/teas.module';
@@ -42,6 +43,9 @@ import { UsersModule } from './users/users.module';
         RATE_LIMIT_TTL: Joi.number().default(60),
         RATE_LIMIT_LIMIT: Joi.number().default(5),
         BCRYPT_SALT: Joi.number().default(12),
+        CLOUDINARY_API_SECRET: Joi.string().required(),
+        CLOUDINARY_API_KEY: Joi.string().required(),
+        CLOUDINARY_CLOUD_NAME: Joi.string().required(),
       }),
     }),
     // db conn
@@ -78,6 +82,7 @@ import { UsersModule } from './users/users.module';
     TeasModule,
     UsersModule,
     IamModule,
+    CloudinaryModule,
   ],
   providers: [
     // register global

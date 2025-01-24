@@ -2926,3 +2926,13 @@ await get("UserRepository").update({ id: 1 }, { role: 'admin' })
 	"updatedAt": "2025-01-23T21:48:22.908Z"
 }
 ```
+
+# thats it
+
+```
+with this u know how to do everything
+just refactor when needed
+read docs on how to integrate things
+
+learn how to do migration later for prod app
+```
