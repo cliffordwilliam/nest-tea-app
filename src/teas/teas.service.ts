@@ -77,6 +77,7 @@ export class TeasService {
     return this.teaRepository.remove(tea);
   }
 
+  // todo: in tea patch do not let client update image url by str, need to use this endpoint
   async addImage(id: number, file: Express.Multer.File) {
     // todo: think of ways to prevent abuse
     const tea = await this.findOne(id);

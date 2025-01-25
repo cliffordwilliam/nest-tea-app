@@ -17,7 +17,7 @@ export class CloudinaryService {
 
       // Upload the stream to Cloudinary
       const upload = cloudinary.uploader.upload_stream(
-        { folder: 'teas' }, // Optional: specify folder
+        { folder: 'teas' }, // todo: move this to env
         (error, result) => {
           if (error) {
             // Reject with an error object

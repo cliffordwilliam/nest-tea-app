@@ -67,6 +67,7 @@ export class TeasController {
     @UploadedFile(
       new ParseFilePipe({
         validators: [
+          // todo: move this to env
           new FileTypeValidator({ fileType: '.(png|jpeg|jpg)' }),
           new MaxFileSizeValidator({ maxSize: 1024 * 1024 * 4 }),
         ],
