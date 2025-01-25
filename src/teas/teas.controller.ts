@@ -32,11 +32,7 @@ export class TeasController {
   }
 
   @Get()
-  findAll(
-    @Query() paginationQuery: PaginationQueryDto,
-    // @ActiveUser() payload: ActiveUserData | undefined,
-  ) {
-    // console.log(payload);
+  findAll(@Query() paginationQuery: PaginationQueryDto) {
     return this.teasService.findAll(paginationQuery);
   }
 
@@ -63,6 +59,7 @@ export class TeasController {
   uploadFile(
     @Param('id') id: number,
     @UploadedFile(
+      // file validations
       new ParseFilePipe({
         validators: [
           new FileTypeValidator({ fileType: '.(png|jpeg|jpg)' }),

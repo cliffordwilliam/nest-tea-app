@@ -68,7 +68,7 @@ import { UsersModule } from './users/users.module';
         }) as TypeOrmModuleOptions,
       inject: [appConfig.KEY],
     }),
-    // rate limit
+    // rate limit init
     ThrottlerModule.forRootAsync({
       imports: [ConfigModule.forFeature(appConfig)],
       useFactory: (rootConfig: ConfigType<typeof appConfig>) =>
@@ -87,7 +87,7 @@ import { UsersModule } from './users/users.module';
     CloudinaryModule,
   ],
   providers: [
-    // register global
+    // register global pipe dto validation
     {
       provide: APP_PIPE,
       useFactory: () => {
@@ -98,7 +98,7 @@ import { UsersModule } from './users/users.module';
         });
       },
     },
-    // register global
+    // register global rate limiter
     {
       provide: APP_GUARD,
       useClass: ThrottlerGuard,

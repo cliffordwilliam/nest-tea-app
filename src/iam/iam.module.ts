@@ -42,5 +42,6 @@ import { BcryptService } from './hashing/bcrypt.service';
     },
   ],
   controllers: [AuthenticationController],
+  exports: [BcryptService],
 })
 export class IamModule {}

@@ -27,7 +27,7 @@ export class TeasService {
   ) {}
 
   async create(createTeaDto: CreateTeaDto) {
-    // prevent violating unique constraint
+    // avoid violating unique constraint
     const existingTea = await this.teaRepository.findOneBy({
       name: createTeaDto.name.trim().replace(/\s+/g, ' '),
     });
@@ -110,7 +110,7 @@ export class TeasService {
       await this.deleteImageFromCloudinary(tea);
       // upload new image to cloudinary
       const res = await this.cloudinary.uploadImage(file);
-      // res ok?
+      // cloudinary res ok?
       if ((res as UploadApiResponse).secure_url) {
         const imageUrl = (res as UploadApiResponse).secure_url;
         // update tea image url
@@ -129,6 +129,7 @@ export class TeasService {
   }
 
   private async deleteImageFromCloudinary(tea: Tea) {
+    // get id from cloudinary url, use it to del
     const imageUrl = tea.imageUrl;
     if (imageUrl) {
       try {

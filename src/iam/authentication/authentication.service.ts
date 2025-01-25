@@ -26,7 +26,7 @@ export class AuthenticationService {
   constructor(
     // inject repo
     @InjectRepository(User)
-    private readonly usersRepository: Repository<User>,
+    private readonly userRepository: Repository<User>,
     // inject servs
     private readonly bcryptService: BcryptService,
     private readonly jwtService: JwtService,
@@ -40,7 +40,7 @@ export class AuthenticationService {
     const { username, password } = signUpDto;
 
     // user alr exist? throw
-    const existingUser = await this.usersRepository.findOneBy({ username });
+    const existingUser = await this.userRepository.findOneBy({ username });
     if (existingUser) {
       this.logger.warn(`User with username ${username} already exists`);
       throw new ConflictException('Username is already taken');
@@ -50,7 +50,7 @@ export class AuthenticationService {
     const user = new User();
     user.username = username;
     user.password = await this.bcryptService.hash(password);
-    await this.usersRepository.save(user);
+    await this.userRepository.save(user);
     this.logger.log(`New user registered with username: ${username}`);
   }
 
@@ -58,13 +58,13 @@ export class AuthenticationService {
     const { username, password } = signInDto;
 
     // user exists?
-    const user = await this.usersRepository.findOneBy({ username });
+    const user = await this.userRepository.findOneBy({ username });
     if (!user) {
       this.logger.warn(`Failed login attempt for username: ${username}`);
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    // Check if the user already has an active session by verifying the refresh token
+    // user got a refresh token saved in redis alr?
     const existingRefreshToken =
       await this.refreshTokenIdsStorage.getByUserName(user.id);
     if (existingRefreshToken) {
@@ -126,7 +126,7 @@ export class AuthenticationService {
     );
 
     // payload -> user
-    const user = await this.usersRepository.findOneByOrFail({
+    const user = await this.userRepository.findOneByOrFail({
       id: payload.sub,
     });
 

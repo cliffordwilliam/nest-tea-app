@@ -117,7 +117,7 @@ export class RefreshTokenIdsStorage
     }
   }
 
-  // Get refresh token ID by username
+  // get refresh token id by user id
   async getByUserName(userId: number): Promise<string | null> {
     return await this.redisClient.get(this.getKey(userId));
   }

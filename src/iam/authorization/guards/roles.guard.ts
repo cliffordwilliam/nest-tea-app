@@ -20,32 +20,32 @@ export class RolesGuard implements CanActivate {
   constructor(private readonly reflector: Reflector) {}
 
   canActivate(context: ExecutionContext): boolean {
-    // Extract roles metadata from handler or class
+    // get decor vals (roles list)
     const requiredRoles = this.reflector.getAllAndOverride<Role[]>(ROLE_KEY, [
       context.getHandler(),
       context.getClass(),
     ]);
 
     if (!requiredRoles || requiredRoles.length === 0) {
-      // No roles specified, allow access
+      // no decor roles list, always pass
       this.logger.debug('No roles specified, granting access');
       return true;
     }
 
-    // Extract request and user data
+    // get req user
     const request = context.switchToHttp().getRequest<Request>();
-    const user = request[REQUEST_USER_KEY] as ActiveUserData | undefined;
+    const user = request[REQUEST_USER_KEY] as ActiveUserData;
 
+    // no req user
     if (!user) {
-      // User not authenticated
       this.logger.warn('Unauthorized access attempt: User not authenticated');
       throw new UnauthorizedException(
         'Authentication required to access this resource.',
       );
     }
 
+    // req user role prop missing
     if (!user.role) {
-      // User authenticated but role missing
       this.logger.warn(
         `Unauthorized access attempt by user ID ${user.sub}: Role is missing`,
       );
@@ -54,8 +54,9 @@ export class RolesGuard implements CanActivate {
       );
     }
 
-    // Check if the user's role is included in the required roles
+    // req user role in decor roles list?
     const hasRole = requiredRoles.includes(user.role);
+    // no
     if (!hasRole) {
       this.logger.warn(
         `Access denied for user ID ${user.sub} (${user.username}): Required roles - ${requiredRoles.join(', ')}`,
@@ -64,7 +65,7 @@ export class RolesGuard implements CanActivate {
         'You do not have sufficient permissions to access this resource.',
       );
     }
-
+    // yes
     this.logger.log(`Access granted to user ID ${user.sub} (${user.username})`);
     return true;
   }

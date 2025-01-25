@@ -4,24 +4,25 @@ import helmet from 'helmet';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
+  // logger
   const logger = new Logger('Bootstrap');
+  // create app
   const app = await NestFactory.create(AppModule);
-  const isProduction = process.env.NODE_ENV === 'production';
-  // Set up CORS for production
+  // set cors
   app.enableCors({
-    // origin: isProduction ? process.env.FRONTEND_URL : true,
+    origin: [process.env.FRONTEND_URL],
     methods: 'GET,POST,PUT,DELETE',
     credentials: true,
   });
-  // Secure HTTP headers
+  // secure http headers
   app.use(
     helmet({
-      contentSecurityPolicy: isProduction ? undefined : false,
+      contentSecurityPolicy: undefined,
     }),
   );
-  // Set global prefix for versioning
+  // set global prefix
   app.setGlobalPrefix('api/v1');
-  // Open port
+  // open port
   const port = process.env.PORT ?? 3000;
   await app.listen(port);
   logger.log(`Application running on port ${port}`);
