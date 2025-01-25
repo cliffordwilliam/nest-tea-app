@@ -64,6 +64,16 @@ export class AuthenticationService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
+    // Check if the user already has an active session by verifying the refresh token
+    const existingRefreshToken =
+      await this.refreshTokenIdsStorage.getByUserName(user.id);
+    if (existingRefreshToken) {
+      this.logger.warn(`User with username ${username} is already signed in`);
+      throw new UnauthorizedException(
+        'You are already signed in. Please use refresh token to get a new session.',
+      );
+    }
+
     // password ok?
     const isPasswordValid = await this.bcryptService.compare(
       password,

@@ -7,6 +7,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
+import { Request } from 'express';
 import { Role } from '../../../users/enums/role.enum';
 import { REQUEST_USER_KEY } from '../../iam.constants';
 import { ActiveUserData } from '../../interfaces/active-user-data.interface';
@@ -19,48 +20,52 @@ export class RolesGuard implements CanActivate {
   constructor(private readonly reflector: Reflector) {}
 
   canActivate(context: ExecutionContext): boolean {
-    // get decor val (user roles enum)
+    // Extract roles metadata from handler or class
     const requiredRoles = this.reflector.getAllAndOverride<Role[]>(ROLE_KEY, [
       context.getHandler(),
       context.getClass(),
     ]);
 
-    // no decor val? pass
     if (!requiredRoles || requiredRoles.length === 0) {
+      // No roles specified, allow access
+      this.logger.debug('No roles specified, granting access');
       return true;
     }
 
-    // req -> req user
+    // Extract request and user data
     const request = context.switchToHttp().getRequest<Request>();
-    const user = (request[REQUEST_USER_KEY] as ActiveUserData) || null;
+    const user = request[REQUEST_USER_KEY] as ActiveUserData | undefined;
 
-    // no req user?
     if (!user) {
+      // User not authenticated
       this.logger.warn('Unauthorized access attempt: User not authenticated');
-      throw new UnauthorizedException('User not authenticated.');
+      throw new UnauthorizedException(
+        'Authentication required to access this resource.',
+      );
     }
 
-    // req user has no role prop?
     if (!user.role) {
-      this.logger.warn(`Unauthorized access attempt: User role is missing`);
-      throw new ForbiddenException('User role is missing.');
-    }
-
-    // req user role is in decor roles list?
-    const hasRole = requiredRoles.includes(user.role);
-    // no? throw
-    if (!hasRole) {
+      // User authenticated but role missing
       this.logger.warn(
-        `Unauthorized access attempt by user ${user.username}. Required roles: ${requiredRoles.join(
-          ', ',
-        )}`,
+        `Unauthorized access attempt by user ID ${user.sub}: Role is missing`,
       );
       throw new ForbiddenException(
-        `Access denied. Required roles: ${requiredRoles.join(', ')}`,
+        'You do not have the necessary permissions to access this resource.',
       );
     }
-    // yes? pass
-    this.logger.log(`Access granted to user ${user.username}`);
+
+    // Check if the user's role is included in the required roles
+    const hasRole = requiredRoles.includes(user.role);
+    if (!hasRole) {
+      this.logger.warn(
+        `Access denied for user ID ${user.sub} (${user.username}): Required roles - ${requiredRoles.join(', ')}`,
+      );
+      throw new ForbiddenException(
+        'You do not have sufficient permissions to access this resource.',
+      );
+    }
+
+    this.logger.log(`Access granted to user ID ${user.sub} (${user.username})`);
     return true;
   }
 }

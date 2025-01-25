@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -15,6 +16,8 @@ import { Tea } from './entities/tea.entity';
 
 @Injectable()
 export class TeasService {
+  private readonly logger = new Logger(TeasService.name);
+
   constructor(
     // inject repo
     @InjectRepository(Tea)
@@ -35,15 +38,25 @@ export class TeasService {
     }
     // dto -> repo instance -> save
     const tea = this.teaRepository.create(createTeaDto);
-    return this.teaRepository.save(tea);
+    try {
+      return await this.teaRepository.save(tea);
+    } catch (error) {
+      this.logger.error('Error creating tea', error);
+      throw new BadRequestException('Failed to create tea');
+    }
   }
 
-  findAll(paginationQuery: PaginationQueryDto) {
+  async findAll(paginationQuery: PaginationQueryDto) {
     const { limit, offset } = paginationQuery;
-    return this.teaRepository.find({
-      skip: offset,
-      take: limit,
-    });
+    try {
+      return await this.teaRepository.find({
+        skip: offset,
+        take: limit,
+      });
+    } catch (error) {
+      this.logger.error('Error fetching all teas', error);
+      throw new BadRequestException('Failed to fetch teas');
+    }
   }
 
   async findOne(id: number) {
@@ -69,19 +82,33 @@ export class TeasService {
         `No tea found with ID #${id}. Please check the ID.`,
       );
     }
-    return this.teaRepository.save(tea);
+    try {
+      return await this.teaRepository.save(tea);
+    } catch (error) {
+      this.logger.error(`Error updating tea with ID #${id}`, error);
+      throw new BadRequestException('Failed to update tea');
+    }
   }
 
   async remove(id: number) {
     const tea = await this.findOne(id);
-    return this.teaRepository.remove(tea);
+    // delete tea image from cloudinary (auto throw err)
+    await this.deleteImageFromCloudinary(tea);
+    // delete tea from my db
+    try {
+      return await this.teaRepository.remove(tea);
+    } catch (error) {
+      this.logger.error(`Error deleting tea with ID #${id}`, error);
+      throw new BadRequestException('Failed to delete tea');
+    }
   }
 
-  // todo: in tea patch do not let client update image url by str, need to use this endpoint
   async addImage(id: number, file: Express.Multer.File) {
-    // todo: think of ways to prevent abuse
     const tea = await this.findOne(id);
     try {
+      // delete old tea image from cloudinary (auto throw err)
+      await this.deleteImageFromCloudinary(tea);
+      // upload new image to cloudinary
       const res = await this.cloudinary.uploadImage(file);
       // res ok?
       if ((res as UploadApiResponse).secure_url) {
@@ -96,8 +123,31 @@ export class TeasService {
         throw new BadRequestException('Image upload failed');
       }
     } catch (error) {
-      console.error('Error uploading image:', error); // todo: use log, do not use the console.error
-      throw new BadRequestException('Invalid file type.');
+      this.logger.error('Error uploading image:', error);
+      throw new BadRequestException('Failed to upload image');
+    }
+  }
+
+  private async deleteImageFromCloudinary(tea: Tea) {
+    const imageUrl = tea.imageUrl;
+    if (imageUrl) {
+      try {
+        const imageUrlParts = imageUrl.split('/');
+        if (imageUrlParts.length > 0) {
+          const oldPublicId = imageUrlParts.pop()?.split('.')[0];
+          if (oldPublicId) {
+            await this.cloudinary.deleteImageByPublicId(oldPublicId);
+            this.logger.log(
+              `Image with public ID ${oldPublicId} deleted successfully.`,
+            );
+          }
+        }
+      } catch (error) {
+        this.logger.error('Error deleting image from Cloudinary', error);
+        throw new BadRequestException('Failed to delete image from Cloudinary');
+      }
+    } else {
+      this.logger.warn('No image URL to delete.');
     }
   }
 }

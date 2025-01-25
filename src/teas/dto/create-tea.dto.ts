@@ -4,15 +4,16 @@ import {
   IsOptional,
   IsPositive,
   IsString,
-  IsUrl,
   Max,
   MaxLength,
   Min,
+  MinLength,
 } from 'class-validator';
 
 export class CreateTeaDto {
   @IsString()
   @MaxLength(255)
+  @MinLength(3)
   @IsNotEmpty()
   readonly name: string;
 
@@ -30,11 +31,4 @@ export class CreateTeaDto {
   @Min(0)
   @Max(10000)
   readonly stock: number;
-
-  @IsString()
-  @IsUrl()
-  @IsNotEmpty()
-  @MaxLength(255)
-  @IsOptional()
-  readonly imageUrl?: string;
 }

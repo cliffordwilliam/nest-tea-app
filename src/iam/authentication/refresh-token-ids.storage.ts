@@ -36,16 +36,22 @@ export class RefreshTokenIdsStorage
         port: this.redisConfiguration.port,
       });
 
-      // log ok
       this.logger.log('Connected to Redis');
 
-      // log fail
       this.redisClient.on('error', (error) => {
         this.logger.error('Redis connection error', error.stack);
       });
+
+      this.redisClient.on('reconnecting', () => {
+        this.logger.warn('Redis is reconnecting...');
+      });
+
+      this.redisClient.on('connect', () => {
+        this.logger.log('Redis reconnected successfully');
+      });
     } catch (error) {
       this.logger.error('Error during Redis initialization', error);
-      throw error; // fail fast if Redis cannot be initialized
+      throw new Error('Redis is unavailable');
     }
   }
 
@@ -83,6 +89,11 @@ export class RefreshTokenIdsStorage
     try {
       // use user id key to get token id
       const storedId = await this.redisClient.get(this.getKey(userId));
+      // no token db?
+      if (!storedId) {
+        this.logger.warn(`Refresh token not found for user ID: ${userId}`);
+        throw new UnauthorizedException('Refresh token not found');
+      }
       // token db vs passed token
       if (storedId !== tokenId) {
         this.logger.warn(`Invalid refresh token for user ID: ${userId}`);
@@ -106,8 +117,13 @@ export class RefreshTokenIdsStorage
     }
   }
 
+  // Get refresh token ID by username
+  async getByUserName(userId: number): Promise<string | null> {
+    return await this.redisClient.get(this.getKey(userId));
+  }
+
   private getKey(userId: number): string {
     // this is just to reformat key str
-    return `user-${userId}-refresh-token`;
+    return `auth:user-${userId}-refresh-token`;
   }
 }

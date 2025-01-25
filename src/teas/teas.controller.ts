@@ -16,8 +16,6 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { PaginationQueryDto } from 'src/common/dto/pagination-query.dto';
 import { Roles } from 'src/iam/authorization/decorators/role.decorator';
-import { ActiveUser } from 'src/iam/decorators/active-user.decorator';
-import { ActiveUserData } from 'src/iam/interfaces/active-user-data.interface';
 import { Role } from 'src/users/enums/role.enum';
 import { CreateTeaDto } from './dto/create-tea.dto';
 import { UpdateTeaDto } from './dto/update-tea.dto';
@@ -36,9 +34,9 @@ export class TeasController {
   @Get()
   findAll(
     @Query() paginationQuery: PaginationQueryDto,
-    @ActiveUser() payload: ActiveUserData | undefined,
+    // @ActiveUser() payload: ActiveUserData | undefined,
   ) {
-    console.log(payload);
+    // console.log(payload);
     return this.teasService.findAll(paginationQuery);
   }
 
@@ -67,9 +65,8 @@ export class TeasController {
     @UploadedFile(
       new ParseFilePipe({
         validators: [
-          // todo: move this to env
           new FileTypeValidator({ fileType: '.(png|jpeg|jpg)' }),
-          new MaxFileSizeValidator({ maxSize: 1024 * 1024 * 4 }),
+          new MaxFileSizeValidator({ maxSize: 1024 * 1024 * 4 }), // 4MB
         ],
       }),
     )

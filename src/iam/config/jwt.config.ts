@@ -1,8 +1,12 @@
 import { registerAs } from '@nestjs/config';
 
 export default registerAs('jwt', () => {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    throw new Error('JWT_SECRET is not defined!');
+  }
   return {
-    secret: process.env.JWT_SECRET,
+    secret,
     audience: process.env.JWT_TOKEN_AUDIENCE,
     issuer: process.env.JWT_TOKEN_ISSUER,
     accessTokenTtl: parseInt(process.env.JWT_ACCESS_TOKEN_TTL ?? '300', 10),

@@ -46,6 +46,8 @@ import { UsersModule } from './users/users.module';
         CLOUDINARY_API_SECRET: Joi.string().required(),
         CLOUDINARY_API_KEY: Joi.string().required(),
         CLOUDINARY_CLOUD_NAME: Joi.string().required(),
+        CLOUDINARY_FOLDER: Joi.string().required(),
+        FRONTEND_URL: Joi.string().default('localhost:3001'),
       }),
     }),
     // db conn

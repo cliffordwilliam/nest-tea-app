@@ -2936,3 +2936,32 @@ read docs on how to integrate things
 
 learn how to do migration later for prod app
 ```
+
+# start cheatsheet
+
+```bash
+# start and stop redis
+sudo systemctl start redis-server
+sudo systemctl stop redis-server
+
+# empty redis
+redis-cli flushall
+
+# run app
+npm run start:dev
+
+# auth endpoints
+- sign-in
+- sign-up
+- refresh-tokens
+- sign-out
+
+# tea endpoints
+- crud
+
+# curl img post
+curl -X POST \
+ -H "Authorization: Bearer dsadsadsadsa" \
+ -F "file=@/home/asdsadsdadsadsa/Downloads/test.jpg" \
+ http://localhost:3000/api/v1/teas/15/image
+```

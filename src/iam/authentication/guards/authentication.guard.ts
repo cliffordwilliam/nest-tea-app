@@ -37,6 +37,7 @@ export class AuthenticationGuard implements CanActivate {
 
     // got decor? pass
     if (isPublic) {
+      this.logger.log('Accessing public route');
       return true;
     }
 
@@ -56,8 +57,10 @@ export class AuthenticationGuard implements CanActivate {
       // payload -> req user
       request[REQUEST_USER_KEY] = payload;
 
-      // log ok
-      this.logger.log(`User authenticated successfully (ID: ${payload.sub})`);
+      this.logger.log(
+        `User authenticated successfully (ID: ${payload.sub}, Role: ${payload.role})`,
+      );
+
       // can pass
       return true;
     } catch (error) {
