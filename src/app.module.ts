@@ -2,6 +2,7 @@ import * as Joi from '@hapi/joi';
 import { Module, ValidationPipe } from '@nestjs/common';
 import { ConfigModule, ConfigType } from '@nestjs/config';
 import { APP_GUARD, APP_PIPE } from '@nestjs/core';
+import { ScheduleModule } from '@nestjs/schedule';
 import {
   ThrottlerGuard,
   ThrottlerModule,
@@ -11,11 +12,14 @@ import { TypeOrmModule, TypeOrmModuleOptions } from '@nestjs/typeorm';
 import { CloudinaryModule } from './cloudinary/cloudinary.module';
 import appConfig from './config/app.config';
 import { IamModule } from './iam/iam.module';
+import { OrdersModule } from './orders/orders.module';
 import { TeasModule } from './teas/teas.module';
 import { UsersModule } from './users/users.module';
 
 @Module({
   imports: [
+    // init cron like thing, del items periodically
+    ScheduleModule.forRoot(),
     // init builtin config module
     ConfigModule.forRoot({
       // register root config
@@ -85,6 +89,7 @@ import { UsersModule } from './users/users.module';
     UsersModule,
     IamModule,
     CloudinaryModule,
+    OrdersModule,
   ],
   providers: [
     // register global pipe dto validation

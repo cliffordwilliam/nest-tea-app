@@ -1,10 +1,12 @@
 import { ColumnNumericTransformer } from 'src/common/transformers/column-numeric.transformer';
+import { OrderItem } from 'src/orders/entities/order-item.entity';
 import {
   BeforeInsert,
   Column,
   CreateDateColumn,
   Entity,
   Index,
+  OneToMany,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
@@ -39,6 +41,11 @@ export class Tea {
 
   @UpdateDateColumn({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   updatedAt: Date;
+
+  @OneToMany(() => OrderItem, (orderItem) => orderItem.tea, {
+    onDelete: 'SET NULL',
+  })
+  orderItems: OrderItem[];
 
   @BeforeInsert()
   normalizeFields() {

@@ -6,8 +6,14 @@ import { TeasController } from './teas.controller';
 import { TeasService } from './teas.service';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Tea]), CloudinaryModule],
+  imports: [
+    // register entities
+    TypeOrmModule.forFeature([Tea]),
+    // deps
+    CloudinaryModule,
+  ],
   controllers: [TeasController],
   providers: [TeasService],
+  exports: [TeasService],
 })
 export class TeasModule {}

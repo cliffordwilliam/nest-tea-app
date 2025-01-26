@@ -54,7 +54,7 @@ export class AuthenticationGuard implements CanActivate {
         this.jwtConfiguration,
       );
 
-      // payload -> req user
+      // store payload to req user
       request[REQUEST_USER_KEY] = payload;
 
       this.logger.log(

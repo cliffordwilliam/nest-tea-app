@@ -10,7 +10,7 @@ export class SignInDto {
   @IsString()
   @MaxLength(255)
   @IsNotEmpty()
-  username: string;
+  readonly username: string;
 
   @IsString()
   @MinLength(10)
@@ -20,5 +20,5 @@ export class SignInDto {
     message:
       'Password must contain at least one uppercase letter, one number, and one special character',
   })
-  password: string;
+  readonly password: string;
 }

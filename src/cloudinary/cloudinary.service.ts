@@ -20,29 +20,30 @@ export class CloudinaryService {
   ) {}
   async uploadImage(
     file: Express.Multer.File,
+    publicId: string,
   ): Promise<UploadApiResponse | UploadApiErrorResponse> {
     return new Promise((resolve, reject) => {
-      // Create a readable stream from the buffer
+      // buffer -> readable stream
       const stream = Readable.from(file.buffer);
 
-      // Upload the stream to Cloudinary
+      // upload stream to cloudinary
       const upload = cloudinary.uploader.upload_stream(
-        { folder: this.cloudinaryConfiguration.folder },
+        { folder: this.cloudinaryConfiguration.folder, public_id: publicId },
         (error, result) => {
           if (error) {
-            // Reject with an error object
+            // reject with error object
             reject(new Error(error.message || 'Image upload failed'));
           } else if (!result) {
-            // Handle the case where result is undefined
+            // handle result undefined
             reject(new Error('Unexpected undefined result from Cloudinary'));
           } else {
-            // Resolve with the result
+            // resolve result
             resolve(result);
           }
         },
       );
 
-      // Pipe the stream into the Cloudinary upload stream
+      // pipe stream -> cloudinary upload stream
       stream.pipe(upload);
     });
   }

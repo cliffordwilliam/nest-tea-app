@@ -1,9 +1,11 @@
+import { Order } from 'src/orders/entities/order.entity';
 import {
   BeforeInsert,
   Column,
   CreateDateColumn,
   Entity,
   Index,
+  OneToMany,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
@@ -29,6 +31,9 @@ export class User {
 
   @Column({ enum: Role, default: Role.Regular })
   role: Role;
+
+  @OneToMany(() => Order, (order) => order.user, { cascade: true })
+  orders: Order[];
 
   @BeforeInsert()
   normalizeFields() {

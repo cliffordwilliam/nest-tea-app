@@ -5,25 +5,29 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
+import { Cron } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { UploadApiResponse } from 'cloudinary';
 import { CloudinaryService } from 'src/cloudinary/cloudinary.service';
 import { PaginationQueryDto } from 'src/common/dto/pagination-query.dto';
-import { Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { CreateTeaDto } from './dto/create-tea.dto';
 import { UpdateTeaDto } from './dto/update-tea.dto';
 import { Tea } from './entities/tea.entity';
 
 @Injectable()
 export class TeasService {
+  // logger
   private readonly logger = new Logger(TeasService.name);
 
   constructor(
-    // inject repo
+    // inject repos
     @InjectRepository(Tea)
     private readonly teaRepository: Repository<Tea>,
     // inject 3rd party servs
     private cloudinary: CloudinaryService,
+    // transaction dep
+    private readonly dataSource: DataSource,
   ) {}
 
   async create(createTeaDto: CreateTeaDto) {
@@ -106,10 +110,10 @@ export class TeasService {
   async addImage(id: number, file: Express.Multer.File) {
     const tea = await this.findOne(id);
     try {
-      // delete old tea image from cloudinary (auto throw err)
+      // del old img from cloudinary (auto throw err)
       await this.deleteImageFromCloudinary(tea);
       // upload new image to cloudinary
-      const res = await this.cloudinary.uploadImage(file);
+      const res = await this.cloudinary.uploadImage(file, tea.name);
       // cloudinary res ok?
       if ((res as UploadApiResponse).secure_url) {
         const imageUrl = (res as UploadApiResponse).secure_url;
@@ -129,26 +133,73 @@ export class TeasService {
   }
 
   private async deleteImageFromCloudinary(tea: Tea) {
-    // get id from cloudinary url, use it to del
-    const imageUrl = tea.imageUrl;
-    if (imageUrl) {
-      try {
-        const imageUrlParts = imageUrl.split('/');
-        if (imageUrlParts.length > 0) {
-          const oldPublicId = imageUrlParts.pop()?.split('.')[0];
-          if (oldPublicId) {
-            await this.cloudinary.deleteImageByPublicId(oldPublicId);
-            this.logger.log(
-              `Image with public ID ${oldPublicId} deleted successfully.`,
-            );
-          }
-        }
-      } catch (error) {
-        this.logger.error('Error deleting image from Cloudinary', error);
-        throw new BadRequestException('Failed to delete image from Cloudinary');
-      }
-    } else {
+    // tea has no img url blocker
+    if (!tea.imageUrl) {
       this.logger.warn('No image URL to delete.');
+      return;
+    }
+
+    try {
+      await this.cloudinary.deleteImageByPublicId(tea.name);
+      this.logger.log(`Image with public ID ${tea.name} deleted successfully.`);
+    } catch (error) {
+      this.logger.error('Error deleting image from Cloudinary', error);
+      throw new BadRequestException('Failed to delete image from Cloudinary');
+    }
+  }
+
+  @Cron('0 0 * * *') // runs daily at midnight
+  private async resetTeaCollection() {
+    // start transaction
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+    try {
+      // get all teas
+      const allTeas = await queryRunner.manager.find(Tea);
+
+      // got teas?
+      if (allTeas.length) {
+        await queryRunner.manager.remove(allTeas);
+        this.logger.log(`Deleted ${allTeas.length} teas successfully.`);
+      }
+
+      // make 1 demo tea
+      const demoTea1 = this.teaRepository.create({
+        name: 'Demo Tea 1',
+        description: 'A nice demo tea.',
+        price: 5.0,
+      });
+      await queryRunner.manager.save(demoTea1);
+
+      // make 1 demo tea
+      const demoTea2 = this.teaRepository.create({
+        name: 'Demo Tea 2',
+        description: 'Another demo tea.',
+        price: 6.0,
+      });
+      await queryRunner.manager.save(demoTea2);
+
+      // make 1 demo tea
+      const demoTea3 = this.teaRepository.create({
+        name: 'Demo Tea 3',
+        description: 'The best demo tea.',
+        price: 7.0,
+      });
+      await queryRunner.manager.save(demoTea3);
+
+      // commit transaction
+      await queryRunner.commitTransaction();
+      this.logger.log('Transaction committed successfully. Demo teas created.');
+    } catch (error) {
+      // undo transaction
+      this.logger.error('Error during periodic tea cleanup', error);
+      await queryRunner.rollbackTransaction();
+      throw new BadRequestException(
+        'Failed to delete teas and recreate demo teas',
+      );
+    } finally {
+      await queryRunner.release();
     }
   }
 }
