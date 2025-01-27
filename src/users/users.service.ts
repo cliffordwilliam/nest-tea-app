@@ -8,6 +8,7 @@ import { Cron } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { PaginationQueryDto } from 'src/common/dto/pagination-query.dto';
 import { BcryptService } from 'src/iam/hashing/bcrypt.service';
+import { Order } from 'src/orders/entities/order.entity';
 import { DataSource, Repository } from 'typeorm';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { User } from './entities/user.entity';
@@ -22,6 +23,8 @@ export class UsersService {
     // inject repo
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+    @InjectRepository(Order)
+    private readonly orderRepository: Repository<Order>,
     // inject servs
     private readonly bcryptService: BcryptService,
     // transaction dep
@@ -122,14 +125,24 @@ export class UsersService {
     }
   }
 
-  // TODO: Needs to delete the order first, then can delete the users
   @Cron('0 0 * * *') // runs daily at midnight
-  private async deleteAllUsersExceptOneAdmin() {
+  private async deleteAllUsers() {
     // start transaction
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
     try {
+      // get all orders
+      const allOrders = await this.orderRepository.find();
+
+      // got orders? del em
+      if (allOrders.length) {
+        await queryRunner.manager.remove(allOrders);
+        this.logger.log(
+          `Deleted ${allOrders.length} demo orders successfully.`,
+        );
+      }
+
       // get all users
       const demoUsers = await this.userRepository.find();
 

@@ -7,7 +7,6 @@ import {
   Patch,
   Post,
   Query,
-  UnauthorizedException,
 } from '@nestjs/common';
 import { PaginationQueryDto } from 'src/common/dto/pagination-query.dto';
 import { Roles } from 'src/iam/authorization/decorators/role.decorator';
@@ -29,13 +28,7 @@ export class OrdersController {
     @Body() createOrderDto: CreateOrderDto,
     @ActiveUser() user: ActiveUserData,
   ) {
-    // ensure reg id is same as order owner id
-    if (user.sub !== createOrderDto.userId) {
-      throw new UnauthorizedException(
-        'You can only create orders for yourself.',
-      );
-    }
-    return this.ordersService.create(createOrderDto);
+    return this.ordersService.create(createOrderDto, user.sub);
   }
 
   // only admin can get all orders

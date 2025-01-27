@@ -4,7 +4,6 @@ import {
   InternalServerErrorException,
 } from '@nestjs/common';
 import { ConfigType } from '@nestjs/config';
-import appConfig from 'src/config/app.config';
 import { Stripe } from 'stripe';
 import stripeConfig from './config/stripe.config';
 
@@ -16,8 +15,6 @@ export class PaymentService {
     // inject configs
     @Inject(stripeConfig.KEY)
     private readonly stripeConfiguration: ConfigType<typeof stripeConfig>,
-    @Inject(appConfig.KEY)
-    private readonly appConfiguration: ConfigType<typeof appConfig>,
   ) {
     this.stripe = new Stripe(this.stripeConfiguration.secret);
   }
@@ -25,8 +22,9 @@ export class PaymentService {
   async createCheckoutSession(
     amount: number,
     currency: string,
-    productId: string, // Product ID can be used for better data management
+    productId: string,
     quantity: number,
+    redirectUrl: string,
   ): Promise<Stripe.Checkout.Session> {
     try {
       const session = await this.stripe.checkout.sessions.create({
@@ -35,29 +33,27 @@ export class PaymentService {
             price_data: {
               currency: currency,
               product_data: {
-                name: `Test Product`, // You can customize the product name as needed
-                // Additional product information can be added here
+                name: `Test Product`,
               },
-              unit_amount: amount * 100, // Amount is in cents
+              unit_amount: amount * 100,
             },
-            quantity: quantity, // Specify the quantity of the product
+            quantity: quantity,
           },
         ],
-        mode: 'payment', // Set the mode to 'payment'
-        success_url: `${this.appConfiguration.frontendUrl}/success.html`, // Redirect URL on success
-        cancel_url: `${this.appConfiguration.frontendUrl}/cancel.html`, // Redirect URL on cancellation
+        mode: 'payment', // set the mode to 'payment'
+        success_url: `${redirectUrl}/success.html`, // redirect URL on success
+        cancel_url: `${redirectUrl}/cancel.html`, // redirect URL on cancellation
         metadata: {
-          // Pass any additional data here, such as user ID
-          // or product ID for handling in webhooks
+          // additional data here, for handling in webhooks
           productId: productId,
         },
       });
 
-      return session; // Return the created session
+      return session; // return the created session
     } catch (error) {
       console.error('Error creating session:', error);
       throw new InternalServerErrorException(
-        'Failed to create checkout session', // Handle errors gracefully
+        'Failed to create checkout session', // handle errors gracefully
       );
     }
   }

@@ -2,20 +2,23 @@ import { Type } from 'class-transformer';
 import {
   IsArray,
   IsNotEmpty,
-  IsNumber,
-  Min,
+  IsString,
+  MaxLength,
+  MinLength,
   ValidateNested,
 } from 'class-validator';
 import { CreateOrderItemDto } from 'src/orders/dto/create-order-item.dto';
 
 export class CreateOrderDto {
-  @IsNumber()
-  @Min(0)
-  readonly userId: number;
-
   @IsArray()
   @IsNotEmpty()
   @ValidateNested({ each: true })
   @Type(() => CreateOrderItemDto)
   readonly orderItems: CreateOrderItemDto[];
+
+  @IsString()
+  @MaxLength(255)
+  @MinLength(3)
+  @IsNotEmpty()
+  readonly redirectUrl: string;
 }

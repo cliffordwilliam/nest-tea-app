@@ -32,7 +32,7 @@ export class OrdersService {
     private readonly dataSource: DataSource,
   ) {}
 
-  async create(createOrderDto: CreateOrderDto) {
+  async create(createOrderDto: CreateOrderDto, id: number) {
     // init trx
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
@@ -40,7 +40,7 @@ export class OrdersService {
 
     try {
       // user exists? (auto throw)
-      const user = await this.usersService.findOne(createOrderDto.userId);
+      const user = await this.usersService.findOne(id);
 
       // get total price
       let totalPrice = 0;
@@ -54,6 +54,7 @@ export class OrdersService {
         'USD',
         'Order Payment',
         1,
+        createOrderDto.redirectUrl,
       );
 
       // make and save order first
@@ -149,12 +150,6 @@ export class OrdersService {
     try {
       // target order exists? if no throw
       const order = await this.findOne(id);
-
-      // edit user if given
-      if (updateOrderDto.userId) {
-        const user = await this.usersService.findOne(updateOrderDto.userId);
-        order.user = user;
-      }
 
       // save updated order
       const updatedOrder = await queryRunner.manager.save(order);

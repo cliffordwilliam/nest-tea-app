@@ -156,7 +156,7 @@ export class TeasService {
     await queryRunner.startTransaction();
     try {
       // get all teas
-      const allTeas = await queryRunner.manager.find(Tea);
+      const allTeas = await this.teaRepository.find();
 
       // got teas? del em
       if (allTeas.length) {
@@ -169,6 +169,7 @@ export class TeasService {
         name: 'Demo Tea 1',
         description: 'A nice demo tea.',
         price: 5.0,
+        stock: 10,
       });
       await queryRunner.manager.save(demoTea1);
 
@@ -177,6 +178,7 @@ export class TeasService {
         name: 'Demo Tea 2',
         description: 'Another demo tea.',
         price: 6.0,
+        stock: 11,
       });
       await queryRunner.manager.save(demoTea2);
 
@@ -185,6 +187,7 @@ export class TeasService {
         name: 'Demo Tea 3',
         description: 'The best demo tea.',
         price: 7.0,
+        stock: 12,
       });
       await queryRunner.manager.save(demoTea3);
 
