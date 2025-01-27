@@ -14,4 +14,5 @@ export default registerAs('database', () => ({
     ttl: parseInt(process.env.RATE_LIMIT_TTL || '60', 10),
     limit: parseInt(process.env.RATE_LIMIT_LIMIT || '5', 10),
   },
+  frontendUrl: process.env.FRONTEND_URL,
 }));

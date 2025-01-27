@@ -132,7 +132,7 @@ export class UsersService {
       // get all users
       const demoUsers = await this.userRepository.find();
 
-      // no users?
+      // got users? del em
       if (demoUsers.length) {
         await queryRunner.manager.remove(demoUsers);
         this.logger.log(`Deleted ${demoUsers.length} demo users successfully.`);

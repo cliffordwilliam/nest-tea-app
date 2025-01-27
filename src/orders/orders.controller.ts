@@ -22,16 +22,17 @@ import { OrdersService } from './orders.service';
 export class OrdersController {
   constructor(private readonly ordersService: OrdersService) {}
 
-  // only user can make order, and they make it only for themselves
+  // only reg make order, reg make for itself
   @Roles(Role.Regular)
   @Post()
   create(
     @Body() createOrderDto: CreateOrderDto,
     @ActiveUser() user: ActiveUserData,
   ) {
-    if (user.role !== Role.Admin && user.sub !== createOrderDto.userId) {
+    // ensure reg id is same as order owner id
+    if (user.sub !== createOrderDto.userId) {
       throw new UnauthorizedException(
-        'You are not allowed to delete this user',
+        'You can only create orders for yourself.',
       );
     }
     return this.ordersService.create(createOrderDto);
@@ -65,15 +66,10 @@ export class OrdersController {
     return this.ordersService.remove(id);
   }
 
-  // for user to get their order for themselves
-  @Get('user/:id')
-  findOneByUser(@Param('id') id: number, @ActiveUser() user: ActiveUserData) {
-    // admin gets anyone, regular user only gets itself
-    if (user.role !== Role.Admin && user.sub !== id) {
-      throw new UnauthorizedException(
-        'You are not allowed to delete this user',
-      );
-    }
-    return this.ordersService.findOneByUser(id);
+  // for reg to get their order for themselves
+  @Roles(Role.Regular)
+  @Get('user/me')
+  findOneByUser(@ActiveUser() user: ActiveUserData) {
+    return this.ordersService.findOneByUser(user.sub);
   }
 }

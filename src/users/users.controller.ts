@@ -30,13 +30,13 @@ export class UsersController {
     return this.usersService.findOne(id);
   }
 
+  // admin updates all, reg updates itself
   @Patch(':id')
   update(
     @Param('id') id: number,
     @Body() updateUserDto: UpdateUserDto,
     @ActiveUser() user: ActiveUserData,
   ) {
-    // admin updates anyone, regular user only updates itself
     if (user.role !== Role.Admin && user.sub !== id) {
       throw new UnauthorizedException(
         'You are not allowed to update this user',
@@ -45,9 +45,9 @@ export class UsersController {
     return this.usersService.update(id, updateUserDto);
   }
 
+  // admin dels all, reg dels itself
   @Delete(':id')
   remove(@Param('id') id: number, @ActiveUser() user: ActiveUserData) {
-    // admin dels anyone, regular user only dels itself
     if (user.role !== Role.Admin && user.sub !== id) {
       throw new UnauthorizedException(
         'You are not allowed to delete this user',
@@ -56,26 +56,26 @@ export class UsersController {
     return this.usersService.remove(id);
   }
 
+  // admin promote others but not itself
   @Roles(Role.Admin)
   @Patch(':id/promote')
   promoteUserRole(
     @Param('id') id: number,
     @ActiveUser() adminUser: ActiveUserData,
   ) {
-    // block editing own role
     if (id === adminUser.sub) {
       throw new UnauthorizedException('You cannot promote your own role');
     }
     return this.usersService.promoteUser(id);
   }
 
+  // admin demote others but not itself
   @Roles(Role.Admin)
   @Patch(':id/demote')
   demoteUserRole(
     @Param('id') id: number,
     @ActiveUser() adminUser: ActiveUserData,
   ) {
-    // block editing own role
     if (id === adminUser.sub) {
       throw new UnauthorizedException('You cannot demote your own role');
     }

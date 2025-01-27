@@ -25,6 +25,7 @@ import { TeasService } from './teas.service';
 export class TeasController {
   constructor(private readonly teasService: TeasService) {}
 
+  // only admin makes tea
   @Roles(Role.Admin)
   @Post()
   create(@Body() createTeaDto: CreateTeaDto) {
@@ -41,18 +42,21 @@ export class TeasController {
     return this.teasService.findOne(id);
   }
 
+  // only admin edit tea
   @Roles(Role.Admin)
   @Patch(':id')
   update(@Param('id') id: number, @Body() updateTeaDto: UpdateTeaDto) {
     return this.teasService.update(id, updateTeaDto);
   }
 
+  // only admin dels tea
   @Roles(Role.Admin)
   @Delete(':id')
   remove(@Param('id') id: number) {
     return this.teasService.remove(id);
   }
 
+  // only admin can add tea img to cloudinary
   @Roles(Role.Admin)
   @Post(':id/image')
   @UseInterceptors(FileInterceptor('file'))

@@ -3,8 +3,8 @@ import {
   IsArray,
   IsNotEmpty,
   IsNumber,
-  IsPositive,
   Min,
+  ValidateNested,
 } from 'class-validator';
 import { CreateOrderItemDto } from 'src/orders/dto/create-order-item.dto';
 
@@ -15,10 +15,7 @@ export class CreateOrderDto {
 
   @IsArray()
   @IsNotEmpty()
+  @ValidateNested({ each: true })
   @Type(() => CreateOrderItemDto)
   readonly orderItems: CreateOrderItemDto[];
-
-  @IsNumber({ maxDecimalPlaces: 2 })
-  @IsPositive()
-  readonly totalPrice: number;
 }

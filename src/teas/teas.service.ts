@@ -158,7 +158,7 @@ export class TeasService {
       // get all teas
       const allTeas = await queryRunner.manager.find(Tea);
 
-      // got teas?
+      // got teas? del em
       if (allTeas.length) {
         await queryRunner.manager.remove(allTeas);
         this.logger.log(`Deleted ${allTeas.length} teas successfully.`);

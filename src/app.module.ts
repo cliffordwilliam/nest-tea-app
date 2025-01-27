@@ -15,6 +15,7 @@ import { IamModule } from './iam/iam.module';
 import { OrdersModule } from './orders/orders.module';
 import { TeasModule } from './teas/teas.module';
 import { UsersModule } from './users/users.module';
+import { PaymentModule } from './payment/payment.module';
 
 @Module({
   imports: [
@@ -90,6 +91,7 @@ import { UsersModule } from './users/users.module';
     IamModule,
     CloudinaryModule,
     OrdersModule,
+    PaymentModule,
   ],
   providers: [
     // register global pipe dto validation

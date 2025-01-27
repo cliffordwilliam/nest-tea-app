@@ -5,6 +5,7 @@ import {
   Column,
   CreateDateColumn,
   Entity,
+  Index,
   ManyToOne,
   OneToMany,
   PrimaryGeneratedColumn,
@@ -16,7 +17,8 @@ export class Order {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @ManyToOne(() => User, (user) => user.orders, { eager: true })
+  @Index()
+  @ManyToOne(() => User, (user) => user.orders)
   user: User;
 
   @OneToMany(() => OrderItem, (orderItem) => orderItem.order, { cascade: true })

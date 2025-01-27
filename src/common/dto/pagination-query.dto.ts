@@ -8,7 +8,7 @@ export class PaginationQueryDto {
   @Min(1)
   @Max(100) // prevent too much items in 1 req
   @Transform(({ value }) => (value ? Number(value) : 10))
-  readonly limit?: number;
+  readonly limit?: number = 10;
 
   @Type(() => Number)
   @IsOptional()
@@ -16,5 +16,5 @@ export class PaginationQueryDto {
   @Min(0)
   // no max, can offset till whatever
   @Transform(({ value }) => (value ? Number(value) : 0))
-  readonly offset?: number;
+  readonly offset?: number = 0;
 }

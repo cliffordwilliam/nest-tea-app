@@ -7,6 +7,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { PaginationQueryDto } from 'src/common/dto/pagination-query.dto';
 import { OrderItem } from 'src/orders/entities/order-item.entity';
+import { PaymentService } from 'src/payment/payment.service';
 import { TeasService } from 'src/teas/teas.service';
 import { UsersService } from 'src/users/users.service';
 import { DataSource, Repository } from 'typeorm';
@@ -26,6 +27,7 @@ export class OrdersService {
     // deps
     private readonly teasService: TeasService,
     private readonly usersService: UsersService,
+    private readonly paymentService: PaymentService,
     // transaction dep
     private readonly dataSource: DataSource,
   ) {}
@@ -40,40 +42,54 @@ export class OrdersService {
       // user exists? (auto throw)
       const user = await this.usersService.findOne(createOrderDto.userId);
 
+      // get total price
+      let totalPrice = 0;
+      for (const item of createOrderDto.orderItems) {
+        const tea = await this.teasService.findOne(item.teaId); // Ensure tea exists
+        totalPrice += tea.price * item.quantity;
+      }
+
+      const paymentSession = await this.paymentService.createCheckoutSession(
+        totalPrice,
+        'USD',
+        'Order Payment',
+        1,
+      );
+
       // make and save order first
       const order = new Order();
       order.user = user;
-      order.totalPrice = createOrderDto.totalPrice;
+      order.totalPrice = totalPrice;
       const savedOrder = await queryRunner.manager.save(order);
 
       // iter conn list (order <-> tea)
-      await Promise.all(
-        createOrderDto.orderItems.map(async (item) => {
-          // tea exists? (auto throw)
-          const tea = await this.teasService.findOne(item.teaId);
+      for (const item of createOrderDto.orderItems) {
+        // tea exists? (auto throw)
+        const tea = await this.teasService.findOne(item.teaId);
 
-          // make conn (order <-> tea)
-          const orderItem = new OrderItem();
-          orderItem.order = savedOrder;
-          orderItem.tea = tea;
-          orderItem.quantity = item.quantity;
-          orderItem.price = item.price;
+        // make conn (order <-> tea)
+        const orderItem = new OrderItem();
+        orderItem.order = savedOrder;
+        orderItem.tea = tea;
+        orderItem.quantity = item.quantity;
+        orderItem.price = tea.price * item.quantity;
 
-          // save this conn
-          await queryRunner.manager.save(orderItem);
-        }),
-      );
+        // save this conn
+        await queryRunner.manager.save(orderItem);
+      }
 
       // commit trx
       await queryRunner.commitTransaction();
 
       // return created order + relations conn & tea
-      return await this.findOne(savedOrder.id);
+      return { order: await this.findOne(savedOrder.id), paymentSession };
     } catch (error) {
       // undo trx
-      await queryRunner.rollbackTransaction();
+      if (queryRunner.isTransactionActive) {
+        await queryRunner.rollbackTransaction();
+      }
       this.logger.error('Error creating order', error);
-      throw new BadRequestException('Failed to create order');
+      throw new BadRequestException('Failed to create order.');
     } finally {
       // release trx
       await queryRunner.release();
@@ -89,22 +105,25 @@ export class OrdersService {
         relations: { user: true, orderItems: { tea: true } },
       });
     } catch (error) {
-      this.logger.error('Error fetching all order', error);
-      throw new BadRequestException('Failed to fetch order');
+      this.logger.error('Error fetching orders', error);
+      throw new BadRequestException('Failed to fetch orders.');
     }
   }
 
   async findOne(id: number) {
-    const order = await this.orderRepository.findOne({
-      where: { id },
-      relations: { user: true, orderItems: { tea: true } },
-    });
-    if (!order) {
-      throw new NotFoundException(
-        `No order found with ID #${id}. Please check the ID.`,
-      );
+    try {
+      const order = await this.orderRepository.findOne({
+        where: { id },
+        relations: { user: true, orderItems: { tea: true } },
+      });
+      if (!order) {
+        throw new NotFoundException(`Order with ID #${id} not found.`);
+      }
+      return order;
+    } catch (error) {
+      this.logger.error(`Error fetching order ID #${id}`, error);
+      throw new NotFoundException(`Failed to fetch order with ID #${id}.`);
     }
-    return order;
   }
 
   async findOneByUser(id: number) {
@@ -137,37 +156,35 @@ export class OrdersService {
         order.user = user;
       }
 
-      // edit total price if given
-      if (updateOrderDto.totalPrice !== undefined) {
-        order.totalPrice = updateOrderDto.totalPrice;
-      }
+      // save updated order
+      const updatedOrder = await queryRunner.manager.save(order);
 
       // edit order items if given
       if (updateOrderDto.orderItems) {
-        // wipe original conn
-        await queryRunner.manager.delete(OrderItem, { order: { id } });
+        // wipe all original conn
+        await queryRunner.manager
+          .createQueryBuilder()
+          .delete()
+          .from(OrderItem)
+          .where('orderId = :orderId', { orderId: id })
+          .execute();
 
         // iter conn list (order <-> tea)
-        await Promise.all(
-          updateOrderDto.orderItems.map(async (item) => {
-            // tea exists? (auto throw)
-            const tea = await this.teasService.findOne(item.teaId);
+        for (const item of updateOrderDto.orderItems) {
+          // tea exists? (auto throw)
+          const tea = await this.teasService.findOne(item.teaId);
 
-            // make conn (order <-> tea)
-            const orderItem = new OrderItem();
-            orderItem.order = order;
-            orderItem.tea = tea;
-            orderItem.quantity = item.quantity;
-            orderItem.price = item.price;
+          // make conn (order <-> tea)
+          const orderItem = new OrderItem();
+          orderItem.order = order;
+          orderItem.tea = tea;
+          orderItem.quantity = item.quantity;
+          orderItem.price = tea.price * item.quantity;
 
-            // save this conn
-            await queryRunner.manager.save(orderItem);
-          }),
-        );
+          // save this conn
+          await queryRunner.manager.save(orderItem);
+        }
       }
-
-      // save updated order
-      const updatedOrder = await queryRunner.manager.save(order);
 
       // commit trx
       await queryRunner.commitTransaction();
@@ -176,9 +193,11 @@ export class OrdersService {
       return await this.findOne(updatedOrder.id);
     } catch (error) {
       // undo trx
-      await queryRunner.rollbackTransaction();
+      if (queryRunner.isTransactionActive) {
+        await queryRunner.rollbackTransaction();
+      }
       this.logger.error(`Error updating order ID #${id}`, error);
-      throw new BadRequestException('Failed to update order');
+      throw new BadRequestException(`Failed to update order ID #${id}.`);
     } finally {
       // release trx
       await queryRunner.release();
@@ -188,10 +207,11 @@ export class OrdersService {
   async remove(id: number) {
     const order = await this.findOne(id);
     try {
-      return await this.orderRepository.remove(order);
+      await this.orderRepository.remove(order);
+      return { message: `Order with ID #${id} deleted successfully.` };
     } catch (error) {
-      this.logger.error(`Error deleting order with ID #${id}`, error);
-      throw new BadRequestException('Failed to delete order');
+      this.logger.error(`Error deleting order ID #${id}`, error);
+      throw new BadRequestException(`Failed to delete order ID #${id}.`);
     }
   }
 }
