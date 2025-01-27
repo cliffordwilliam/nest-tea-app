@@ -34,6 +34,7 @@ export class RefreshTokenIdsStorage
       this.redisClient = new Redis({
         host: this.redisConfiguration.host,
         port: this.redisConfiguration.port,
+        family: 0, // force ipv4
       });
 
       this.logger.log('Connected to Redis');
