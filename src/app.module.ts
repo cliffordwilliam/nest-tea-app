@@ -45,6 +45,7 @@ import { UsersModule } from './users/users.module';
         JWT_REFRESH_TOKEN_TTL: Joi.string().default('3600'),
         REDIS_HOST: Joi.string().default('localhost'),
         REDIS_PORT: Joi.number().default(6379),
+        REDIS_PASSWORD: Joi.string().required(),
         RATE_LIMIT_TTL: Joi.number().default(60),
         RATE_LIMIT_LIMIT: Joi.number().default(5),
         BCRYPT_SALT: Joi.number().default(12),
