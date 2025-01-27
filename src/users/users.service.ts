@@ -122,6 +122,7 @@ export class UsersService {
     }
   }
 
+  // TODO: Needs to delete the order first, then can delete the users
   @Cron('0 0 * * *') // runs daily at midnight
   private async deleteAllUsersExceptOneAdmin() {
     // start transaction

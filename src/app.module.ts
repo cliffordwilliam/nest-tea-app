@@ -13,9 +13,9 @@ import { CloudinaryModule } from './cloudinary/cloudinary.module';
 import appConfig from './config/app.config';
 import { IamModule } from './iam/iam.module';
 import { OrdersModule } from './orders/orders.module';
+import { PaymentModule } from './payment/payment.module';
 import { TeasModule } from './teas/teas.module';
 import { UsersModule } from './users/users.module';
-import { PaymentModule } from './payment/payment.module';
 
 @Module({
   imports: [
@@ -53,6 +53,7 @@ import { PaymentModule } from './payment/payment.module';
         CLOUDINARY_CLOUD_NAME: Joi.string().required(),
         CLOUDINARY_FOLDER: Joi.string().required(),
         FRONTEND_URL: Joi.string().default('localhost:3001'),
+        STRIPE_SECRET: Joi.string().required(),
       }),
     }),
     // db conn
