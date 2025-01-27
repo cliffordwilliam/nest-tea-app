@@ -71,8 +71,7 @@ import { UsersModule } from './users/users.module';
           database: rootConfig.database.name,
           // orm settings
           autoLoadEntities: true,
-          synchronize: true,
-          // synchronize: rootConfig.environment === 'development',
+          synchronize: rootConfig.environment === 'development',
         }) as TypeOrmModuleOptions,
       inject: [appConfig.KEY],
     }),
